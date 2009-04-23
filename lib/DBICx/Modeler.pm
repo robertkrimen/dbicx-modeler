@@ -5,7 +5,7 @@ use strict;
 
 =head1 NAME
 
-DBICx::Modeler - The great new DBICx::Modeler!
+DBICx::Modeler -
 
 =head1 VERSION
 
@@ -18,34 +18,283 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
-Perhaps a little code snippet.
-
-    use DBICx::Modeler;
-
-    my $foo = DBICx::Modeler->new();
-    ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
-
-=head1 FUNCTIONS
-
-=head2 function1
-
 =cut
 
-sub function1 {
+use constant TRACE_DEFAULT => 0;
+use constant TRACE => (exists $ENV{MODELER_TRACE} ? $ENV{MODELER_TRACE} : TRACE_DEFAULT) ? sub { print STDERR join "", @_, "\n" } : sub {};
+
+use Moose;
+
+use Carp::Clan;
+use Scalar::Util qw/blessed/;
+use Class::Inspector();
+
+require DBICx::Modeler::Model::Source;
+
+#########
+# Class #
+#########
+
+sub ensure_class_loaded {
+    shift;
+    my $class = shift;
+    return if Class::Inspector->loaded( $class );
+    eval "require $class;";
+    die "Couldn't load class $class: $@" if $@;
 }
 
-=head2 function2
+sub _expand_relative_name {
+    my ($class, $name) = @_;
 
-=cut
+    return unless $name;
 
-sub function2 {
+    my $parent_class = $class;
+
+    if ($name =~ s/^\+//) {
+        # Hammer Time: Don't touch this!
+    }
+    else {
+        if ($name =~ s/^\-//) {
+            # User wants the parent (wants to be a sibling)
+            my @class = split m/::/, $parent_class;
+            pop @class;
+            $parent_class = join '::', @class;
+        }
+        $name = $parent_class . '::' . $name;
+    }
+    return $name;
+}
+
+###########
+# Object ##
+###########
+
+has schema => qw/is ro required 1 weak_ref 1/;
+has schema_class => qw/is ro lazy_build 1/;
+
+has [qw/
+    namespace
+    skip_moniker
+/] => qw/is rw/;
+
+has [qw/
+    create_select
+    sibling_namespace
+/] => qw/is rw default 1/;
+
+has skip_schema_modeler_accessor => qw/is rw default 0/;
+has [qw/ _model_source_list /] => qw/is ro required 1 lazy 1 isa ArrayRef/, default => sub { [] };
+has [qw/ _namespace_list /] => qw/is ro lazy_build 1 isa ArrayRef/;
+sub _build__namespace_list {
+    my $self = shift;
+    my $class = ref $self || $self;
+
+    my $default_namespace = do {
+        my @default = split m/::/, $class;
+        if ( my $name = $self->sibling_namespace ) {
+            $name = "Model" if $name eq 1;
+            pop @default; # Use Example::${name} instead of Example::Modeler::${name} (e.g. Example::Model)
+            push @default, $name;
+        }
+        "+" . join "::", @default;
+    };
+
+    my $namespace = $self->namespace;
+    $namespace = [] unless defined $namespace;
+    $namespace = [ $namespace ] unless ref $namespace eq "ARRAY";
+    @$namespace = ("?") unless @$namespace; # Use the default namespace if none specified
+    @$namespace = map { $_ eq "?" ? $default_namespace : $_ } @$namespace;
+
+    $_ = $self->_expand_relative_name( $_ ) for @$namespace;
+
+    return [ @$namespace ];
+}
+has [qw/
+    _model_source_lookup_map
+    _model_class_by_moniker_map
+    _moniker_by_model_class_map
+/] => qw/is ro required 1 lazy 1 isa HashRef/, default => sub { {} };
+
+sub _build_schema_class {
+    my $self = shift;
+    return ref $self->schema;
+}
+
+sub BUILD {
+    my $self = shift;
+    my $given = shift;
+
+    $self->skip_moniker( $given->{skip} ) if ! exists $given->{skip_moniker} && $given->{skip};
+
+    my $schema = $self->schema;
+    my $schema_class = $self->schema_class;
+
+    $self->_setup_schema_modeler_accessor unless $self->skip_schema_modeler_accessor;
+    $self->_setup_base_model_sources;
+    $self->schema->modeler( $self );
+
+    return 1;
+}
+
+sub _setup_schema_modeler_accessor {
+    my $self = shift;
+    return if $self->schema_class->can( qw/modeler/ );
+    $self->schema_class->mk_group_accessors( simple => qw/modeler/ );
+}
+
+sub _setup_base_model_sources {
+    my $self = shift;
+    my %option = @_;
+
+    for my $moniker ($self->schema->sources) {
+        my $model_class = $self->model_class_by_moniker( $moniker ); # Initialize base model classes & moniker_by_model_class/model_class_by_moniker
+        my $model_source = DBICx::Modeler::Model::Source->new(
+            moniker => $moniker,
+            modeler => $self,
+            schema => $self->schema,
+            model_class => $model_class,
+        );
+        $model_class->model_meta->initialize_base_model_class( $model_source );
+        $self->_register_model_source( $model_source );
+    }
+}
+
+sub namespaces {
+    my $self = shift;
+    return @{ $self->_namespace_list }
+}
+
+sub moniker_by_model_class {
+    my $self = shift;
+    my $model_class = shift;
+
+    return $self->model_source_by_model_class( $model_class )->moniker;
+#    croak "Couldn't find moniker for (model class) $model_class" unless $moniker;
+}
+
+sub model_class_by_moniker {
+    my $self = shift;
+    my $moniker = shift;
+
+    # Has to be done this way, because the model source might not be loaded yet
+
+    my $model_class = $self->_model_class_by_moniker_map->{$moniker};
+    return $model_class if $model_class;
+
+    for my $namespace ( $self->namespaces ) {
+        my $potential_model_class = "${namespace}::${moniker}";
+
+        # TODO Lookit Class::C3::Componentised more
+        if (Class::Inspector->loaded( $potential_model_class )) {
+        }
+        else {
+            eval "require $potential_model_class;";
+            if ($@ && $@ =~ m/^Can't locate $potential_model_class/) {
+            }
+            die "Couldn't load class $potential_model_class for $moniker: $@" if $@;
+        }
+        $model_class = $potential_model_class;
+        last; # We found something!
+    }
+
+    croak "Couldn't find model class for (moniker) $moniker" unless $model_class;
+
+    $self->_moniker_by_model_class_map->{$model_class} = $moniker;
+    return $self->_model_class_by_moniker_map->{$moniker} = $model_class;
+}
+
+sub model_class_by_result_class {
+    my $self = shift;
+    my $result_class = shift;
+    my $moniker = $self->schema_class->source( $result_class )->source_name;
+    return $self->model_class_by_moniker( $moniker );
+}
+
+sub model_sources {
+    my $self = shift;
+    return @{ $self->_model_source_list };
+}
+
+sub _model_source {
+    my $self = shift;
+    my $model_source= shift;
+
+    $model_source = $self->_model_source_lookup_map->{$model_source} while defined $model_source && ! ref $model_source;
+
+    return $model_source;
+}
+
+sub model_source {
+    return shift->_model_source( @_ );
+}
+
+sub model_source_by_moniker {
+    my $self = shift;
+    my $moniker = shift;
+    my $model_source = $self->_model_source( "::${moniker}" ) or
+        croak "Couldn't find model source for (moniker) $moniker";
+    return $model_source;
+}
+
+sub model_source_by_model_class {
+    my $self = shift;
+    my $model_class = shift;
+
+    my $model_source = $self->_model_source( "+${model_class}" );
+
+    return $model_source if $model_source;
+
+    # The model class might not have been loaded yet
+    $self->ensure_class_loaded( $model_class );
+
+    die "Can't get model source for $model_class since it doesn't have a model meta" unless $model_class->can( 'model_meta' );
+
+    my $parent_model_meta = $model_class->model_meta->parent;
+
+    die "Strange, model source for $model_class doesn't exist, but it doesn't have a parent" unless $parent_model_meta;
+
+    my $parent_model_class = $parent_model_meta->model_class;
+    my $parent_model_source = $self->model_source_by_model_class( $parent_model_class );
+
+    $model_source = $parent_model_source->clone( model_class => $model_class );
+    $self->_register_model_source( $model_source );
+
+    return $model_source;
+}
+
+sub _register_model_source {
+    my $self = shift;
+    my $model_source = shift;
+    push @{ $self->_model_source_list }, $model_source;
+
+    my $moniker = $model_source->moniker;
+    my $moniker_key = "::${moniker}";
+    my $model_class = $model_source->model_class;
+    my $model_class_key = "+${model_class}";
+
+    $self->_model_source_lookup_map->{$model_class_key} = $model_source;
+
+    $self->_model_source_lookup_map->{$model_class} = $model_class_key;
+    $self->_model_source_lookup_map->{$moniker} = $model_class_key;
+    $self->_model_source_lookup_map->{$moniker_key} = $model_class_key;
+}
+
+sub create {
+    my $self = shift;
+    my $key = shift;
+    return $self->model_source( $key )->create( @_ );
+}
+
+sub inflate {
+    my $self = shift;
+    my $key = shift;
+    return $self->model_source( $key )->inflate( @_ );
+}
+
+sub search {
+    my $self = shift;
+    my $key = shift;
+    return $self->model_source( $key )->search( @_ );
 }
 
 =head1 AUTHOR
