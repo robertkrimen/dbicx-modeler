@@ -5,7 +5,7 @@ use strict;
 
 =head1 NAME
 
-DBICx::Modeler -
+DBICx::Modeler - A Moose-based model layer over DBIx::Class
 
 =head1 VERSION
 
@@ -16,6 +16,70 @@ Version 0.001
 our $VERSION = '0.001';
 
 =head1 SYNOPSIS
+
+    # Given the following schema:
+
+    My::Schema::Artist
+    My::Schema::Cd
+    My::Schema::Track
+
+    # ... and the following model:
+
+    My::Model::Artist
+
+    use DBICx::Modeler::Model
+
+    My::Model::Cd ...
+    My::Model::Track ...
+
+    ...
+
+    my $modeler = DBICx::Modeler->new( schema => ..., namespace => My::Model );
+
+    my $artist = $modeler->create( Artist => { ... } ) # $artist is My::Model::Artist
+
+    my $cd = $artist->create_related( cds => { ... } ) # $cd is My::Model::Cd
+
+    ...
+
+    my $search = $artist->cds( { title => ... } ) # Start a search ...
+    $search->search( { ... } ) # Refine the search ...
+    my @cds = $search->slice( 0, 9 ) # Get the first 10     
+                                     # Each is of type My::Model::Cd
+
+=head1 DESCRIPTION
+
+DBICx::Modeler is tool for making a thin, Moose-based model layer over a DBIx::Class schema
+
+=head1 CAVEAT EMPTOR
+
+The modeler will ignore many-to-many
+
+Given $artist->cds( ... )->slice( 0 )->artist ... $artist and ->artist are not the same
+
+Will probably barf of immutable Model:: classes (should be easy to fix)
+
+Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if want to trace what is going on
+
+=head1 METHODS
+
+DBICx::Modeler->new( ... )
+
+    schema          The connected DBIx::Class schema to use/inspect
+
+    namespace       The package containing the Moose classes that will mimic the class structure of <schema>
+
+$modeler->model( <moniker> )
+
+    Return the model source for <moniker>
+
+$modeler->create( <moniker> => ... )
+
+    Create a new row for <moniker> and return the modeled object
+
+$modeler->search( <moniker> => ... )
+
+    Make a search of <moniker> that will inflate into modeled objects
 
 =cut
 
