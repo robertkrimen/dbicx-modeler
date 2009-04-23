@@ -4,20 +4,20 @@ use DBICx::Modeler::Carp;
 use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 #########
-# CLASS #
+# Class #
 #########
 
 # This is a class method!
-# This method is for DBix::Class::ResultSet, so it can inflate into our Model classes
+# This method is for DBix::Class::ResultSet, so it can inflate into our model classes
 sub inflate_result {
     my $class = shift;
     my $source = shift;
-    my $storage = $source->result_class->inflate_result( $source, @_ );
-    return $class->new( model_storage => $storage );
+    my $storage = $source->result_class->inflate_result( $source, @_ ); # Inflate into the "original" DBIx::Class::Row-kind
+    return $class->new( model_storage => $storage ); # Only need to pass in the storage, model_modeler is gotten from the schema
 }
 
 ##########
-# OBJECT #
+# Object #
 ##########
 
 use Moose::Role;

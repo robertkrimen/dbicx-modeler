@@ -1,3 +1,10 @@
 CAVEATS:
     - May not be able to handle immutable classes
+    - Does not do many-to-many (yet)
+
+TODO:
+    - Many-to-many
+
+0.001:
+    - Initial release
 

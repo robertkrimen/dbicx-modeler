@@ -34,7 +34,7 @@ use DBICx::Modeler::Model::Meta;
     }
 
     *unimport = \&$unimport;
-    *unimport = $unimport; # Derp, derp, derp warning
+    *unimport = $unimport; # Derp, derp, derp, warning
 }
 
 sub belongs_to {
