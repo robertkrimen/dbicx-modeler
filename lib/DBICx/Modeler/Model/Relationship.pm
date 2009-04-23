@@ -2,8 +2,8 @@ package DBICx::Modeler::Model::Relationship;
 
 use Moose;
 
-use DBICx::Modeler;
-*TRACE = \&DBICx::Modeler::TRACE;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 has modeler => qw/is ro required 1 weak_ref 1/;
 has name => qw/is ro required 1/;

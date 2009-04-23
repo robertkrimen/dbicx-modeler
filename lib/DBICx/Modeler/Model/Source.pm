@@ -5,8 +5,8 @@ use warnings;
 
 use Moose;
 
-use DBICx::Modeler;
-*TRACE = \&DBICx::Modeler::TRACE;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 use DBICx::Modeler::Model::Relationship;
 
@@ -47,6 +47,7 @@ sub _build_relationship {
 
     TRACE->("[$self] Processing relationship $relationship_name for $moniker");
     my $schema_relationship = $result_source->relationship_info( $relationship_name );
+    croak "No such relationship $relationship_name for ", $self->moniker unless $schema_relationship;
     my $model_relationship = DBICx::Modeler::Model::Relationship->new(
         modeler => $self->modeler,
         name => $relationship_name,

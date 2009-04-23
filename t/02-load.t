@@ -35,24 +35,13 @@ use DBICx::Modeler::Model;
 
 belongs_to(artist => qw/t::Model::Artist::Rock/);
 
-package t::Modeler;
-
-use Test::More;
-use Test::Deep grep { !m/blessed/ } @Test::Deep::EXPORT;
-
-use Moose;
-use t::Test::Project::Schema; # Probably don't need to do this step?
-
-extends qw/DBICx::Modeler/;
-
-#ok( __PACKAGE__->setup(qw/ t::Test::Project::Schema /) );
-
-__PACKAGE__->meta->make_immutable;
-
 package main;
 
+use DBICx::Modeler;
+
 my $schema = t::Test::Project->schema;
-my $modeler = t::Modeler->new( schema => $schema );
+#my $modeler = t::Modeler->new( schema => $schema );
+my $modeler = DBICx::Modeler->new( schema => $schema, namespace => '+t::Model' );
 
 for (qw/ Artist Artist::Rock Cd Track/ ) {
     ok_model( "t::Model::$_" );

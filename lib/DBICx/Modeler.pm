@@ -20,13 +20,11 @@ our $VERSION = '0.01';
 
 =cut
 
-use constant TRACE_DEFAULT => 0;
-use constant TRACE => (exists $ENV{MODELER_TRACE} ? $ENV{MODELER_TRACE} : TRACE_DEFAULT) ? sub { print STDERR join "", @_, "\n" } : sub {};
-
 use Moose;
 
-use Carp::Clan;
-use Scalar::Util qw/blessed/;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
+
 use Class::Inspector();
 
 require DBICx::Modeler::Model::Source;
@@ -44,14 +42,15 @@ sub ensure_class_loaded {
 }
 
 sub _expand_relative_name {
-    my ($class, $name) = @_;
+    my ($self, $name) = @_;
+    my $class = ref $self || $self;
 
     return unless $name;
 
     my $parent_class = $class;
 
     if ($name =~ s/^\+//) {
-        # Hammer Time: Don't touch this!
+        # Hammatime: Don't touch this!
     }
     else {
         if ($name =~ s/^\-//) {
@@ -102,7 +101,10 @@ sub _build__namespace_list {
     my $namespace = $self->namespace;
     $namespace = [] unless defined $namespace;
     $namespace = [ $namespace ] unless ref $namespace eq "ARRAY";
-    @$namespace = ("?") unless @$namespace; # Use the default namespace if none specified
+    unless (@$namespace) {
+        croak "You didn't specify a namespace" if $class eq __PACKAGE__;
+        @$namespace = ("?"); # Use the default namespace if none specified
+    }
     @$namespace = map { $_ eq "?" ? $default_namespace : $_ } @$namespace;
 
     $_ = $self->_expand_relative_name( $_ ) for @$namespace;
@@ -226,6 +228,7 @@ sub _model_source {
 
 sub model_source {
     return shift->_model_source( @_ );
+# TODO Cro-o-o-o-o-ak?
 }
 
 sub model_source_by_moniker {
@@ -277,6 +280,7 @@ sub _register_model_source {
     $self->_model_source_lookup_map->{$model_class} = $model_class_key;
     $self->_model_source_lookup_map->{$moniker} = $model_class_key;
     $self->_model_source_lookup_map->{$moniker_key} = $model_class_key;
+# TODO Add more aliasing
 }
 
 sub create {

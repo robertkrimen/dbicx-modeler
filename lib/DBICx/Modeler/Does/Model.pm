@@ -2,8 +2,8 @@ package DBICx::Modeler::Does::Model;
 
 use Moose::Role;
 
-use DBICx::Modeler;
-*TRACE = \&DBICx::Modeler::TRACE;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 # requires model_meta 
 

@@ -5,12 +5,8 @@ use warnings;
 
 use Moose;
 
-use DBICx::Modeler;
-*TRACE = \&DBICx::Modeler::TRACE;
-*TRACE = *TRACE;
-
-use DBICx::Modeler::Model::Meta::Relationship;
-use Carp;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 has parent => qw/is ro isa Maybe[DBICx::Modeler::Model::Meta] lazy_build 1/;
 sub _build_parent {
@@ -21,29 +17,48 @@ sub _build_parent {
     return undef;
 }
 has model_class => qw/is ro required 1/;
-has base_model_class => qw/is ro lazy_build 1/;
-sub _build_base_model_class {
+has _specialization => qw/is ro isa HashRef/, default => sub { {} };
+
+sub _specialize_relationship {
     my $self = shift;
-    if ($self->parent) {
-        return $self->parent->model_class; # If we are ::Model::Artist::Rock
-    }
-    return $self->model_class; # If we are ::Model::Artist
+    my ($relationship_kind, $relationship_name, $model_class) = @_;
+    $self->_specialization->{relationship}->{$relationship_name} = {
+            kind => $relationship_kind,
+            name => $relationship_name,
+            model_class => $model_class,
+    };
 }
-has _relationship_map => qw/is ro isa HashRef/, default => sub { {} };
-sub relationship {
+
+sub belongs_to {
     my $self = shift;
-    my $relationship_name = shift;
-    return $self->_relationship_map->{$relationship_name} ||= DBICx::Modeler::Model::Meta::Relationship->new( model_meta => $self );
+    $self->_specialize_relationship( belongs_to => @_ );
+}
+
+sub has_one {
+    my $self = shift;
+    $self->_specialize_relationship( has_one => @_ );
+}
+
+sub has_many {
+    my $self = shift;
+    $self->_specialize_relationship( has_many => @_ );
+}
+
+sub might_have {
+    my $self = shift;
+    $self->_specialize_relationship( might_have => @_ );
 }
 
 sub specialize_model_source {
     my $self = shift;
     my $model_source = shift;
-    for my $relationship ($model_source->relationships) {
-        next unless $self->_relationship_map->{ $relationship->name };
-        my $special = $self->relationship( $relationship->name );
-        DBICx::Modeler->ensure_class_loaded( $special->model_class );
-        $relationship->model_class( $special->model_class );
+    if ( local $_ = $self->_specialization->{relationship} ) {
+        for my $specialized_relationship (values %$_) {
+            my ($name, $kind, $model_class) = @$specialized_relationship{qw/ name kind model_class /};
+            my $relationship = $model_source->relationship( $name );
+            DBICx::Modeler->ensure_class_loaded( $model_class );
+            $relationship->model_class( $model_class );
+        }
     }
     return $model_source;
 }
@@ -53,7 +68,6 @@ sub initialize_base_model_class {
     my $model_source = shift;
 
     # $model_source should have been specialized already
-    #
     croak "I should only be called on base model classes" if $self->parent;
 
     my $meta = $self->model_class->meta;

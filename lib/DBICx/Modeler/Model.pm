@@ -3,13 +3,12 @@ package DBICx::Modeler::Model;
 use strict;
 use warnings;
 
-use DBICx::Modeler;
-*TRACE = \&DBICx::Modeler::TRACE;
-*TRACE = *TRACE;
+use DBICx::Modeler::Carp;
+use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 use Moose();
 use Moose::Exporter;
-use Carp;
+
 use DBICx::Modeler::Model::Meta;
 
 {
@@ -24,9 +23,6 @@ use DBICx::Modeler::Model::Meta;
 
         return if $class eq 'main';
 
-#        ($class->can('meta')) || confess "This package can only be used in Moose based classes";
-#        my $meta = $class->meta;
-
         my $meta = Moose::Meta::Class->initialize( $class );
         my $model_meta = DBICx::Modeler::Model::Meta->new( model_class => $class );
         $meta->add_method( model_meta => sub {
@@ -37,28 +33,28 @@ use DBICx::Modeler::Model::Meta;
         goto &$import;
     }
 
-    *unimport = $unimport;
-    *unimport = $unimport; # Silly warning
+    *unimport = \&$unimport;
+    *unimport = $unimport; # Derp, derp, derp warning
 }
 
 sub belongs_to {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->relationship( $relationship_name )->belongs_to( $model_class );
+    $caller->model_meta->belongs_to( $relationship_name => $model_class );
 }
 
 sub has_one {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->relationship( $relationship_name )->has_one( $model_class );
+    $caller->model_meta->has_one( $relationship_name => $model_class );
 }
 
 sub has_many {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->relationship( $relationship_name )->has_many( $model_class );
+    $caller->model_meta->has_many( $relationship_name => $model_class );
 }
 
 sub might_have {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->relationship( $relationship_name )->might_have( $model_class );
+    $caller->model_meta->might_have( $relationship_name => $model_class );
 }
 
 1;
