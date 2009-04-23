@@ -22,10 +22,10 @@ sub _build_result_source {
     my $self = shift;
     return $self->schema->source( $self->moniker );
 };
-has create_select => qw/is rw lazy_build 1/;
-sub _build_create_select {
+has create_refresh => qw/is rw lazy_build 1/;
+sub _build_create_refresh {
     my $self = shift;
-    return $self->modeler->create_select;
+    return $self->modeler->create_refresh;
 };
 has _relationship_map => qw/is ro isa HashRef/, default => sub { {} };
 sub relationship {
@@ -62,22 +62,11 @@ sub clone {
     my $clone = $self->new(
         clone => 1,
         _relationship_map => { map { $_ => $self->_relationship_map->{$_}->clone } keys %{ $self->_relationship_map } },
-        ( map { $_ => $self->$_ } qw/ modeler schema moniker model_class create_select / ),
+        ( map { $_ => $self->$_ } qw/ modeler schema moniker model_class create_refresh / ),
         %override,
     );
     return $clone;
 }
-
-#sub christen {
-#    my $self = shift;
-#    my %override = @_;
-#    croak "Don't have schema override" unless $override{schema};
-#    croak "Override for schema ", $override{schema}, " isn't blessed" unless blessed $override{schema};
-#    croak "Don't have modeler override" unless $override{modeler};
-#    croak "Override for modeler ", $override{modeler}, " isn't blessed" unless blessed $override{modeler};
-#    # Don't want a class-based result_source, need to make sure we grab a fresh one via default =>
-#    return $self->clone(%override);
-#}
 
 sub BUILD {
     my $self = shift;
@@ -106,8 +95,7 @@ sub create {
 
     my $rs = $self->schema->resultset( $self->moniker );
     my $storage = $rs->create( $create );
-    # TODO This should fetch based on the primary key information
-    ($storage) = $storage->result_source->resultset->search({ id => $storage->id })->slice( 0, 0 ) if $self->create_select;
+    $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
     return $self->inflate( model_storage => $storage, @_ );
 }
 
@@ -130,7 +118,7 @@ sub search {
 
 #    return $self->schema->resultset($self->moniker)->search($cond, { result_class => $self->model_class, %$attr });
 # FIXME Doesn't work cuz result_source ain't connected!
-    return $self->result_source->resultset->search( $cond, { result_class => $self->model_class, %$attr } );
+    return $self->result_source->resultset->search( $cond, { result_class => $self->model_class, %$attr }, @_ );
 }
 
 sub inflate_related {
@@ -156,8 +144,7 @@ sub create_related {
     my $relationship = $self->relationship( $relationship_name );
 
     my $storage = $entity->model_storage->create_related( $relationship_name => $values );
-    # TODO This should fetch based on the primary key information
-    ($storage) = $storage->result_source->resultset->search({ id => $storage->id })->slice( 0, 0 ) if $self->create_select;
+    $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
 
     return $self->_inflate( $relationship->model_class, model_storage => $storage );
 }
@@ -176,168 +163,3 @@ sub search_related {
 }
 
 1;
-
-__END__
-
-package MooseX::DBIC::Modeler::ModelSource;
-
-use MooseX::DBIC::Modeler;
-use constant TRACE => MooseX::DBIC::Modeler->TRACE;
-
-use Moose;
-use Carp::Clan qw/^MooseX::DBIC::Modeler::/;
-use Scalar::Util qw/blessed/;
-
-use MooseX::DBIC::Modeler::Relationship;
-
-has modeler => qw/is ro required 1 weak_ref 1/; # Can be class or blessed reference
-has schema => qw/is ro required 1 weak_ref 1/; # Can be class or blessed reference
-has moniker => qw/is ro required 1/;
-has result_source => qw/is ro required 1 weak_ref 1 lazy 1/, default => sub {
-    my $self = shift;
-    return $self->schema->source($self->moniker);
-};
-has relationship_map => qw/is ro lazy 1 required 1/, default => sub { {} };
-has model_class => qw/is rw lazy 1 required 1/, default => sub { # TODO Should this grab a default?
-    my $self = shift;
-    return $self->modeler->get_model_class($self->moniker);
-};
-has create_select => qw/is rw lazy 1/, default => sub {
-    my $self = shift;
-    return $self->modeler->create_select;
-};
-
-sub has_model_class {
-    my $self = shift;
-    return $self->modeler->has_model_class($self->moniker);
-}
-
-sub clone {
-    my $self = shift;
-    my %override = @_;
-    my $clone = $self->new(
-        clone => 1,
-        relationship_map => { map { $_ => $self->relationship_map->{$_}->clone } keys %{ $self->relationship_map } },
-        (map { $_ => $self->$_ } qw/modeler schema moniker model_class/), %override);
-    # FIXME This is a hack!
-    $clone->_setup_defer;
-    return $clone;
-}
-
-sub christen {
-    my $self = shift;
-    my %override = @_;
-    croak "Don't have schema override" unless $override{schema};
-    croak "Override for schema ", $override{schema}, " isn't blessed" unless blessed $override{schema};
-    croak "Don't have modeler override" unless $override{modeler};
-    croak "Override for modeler ", $override{modeler}, " isn't blessed" unless blessed $override{modeler};
-    # Don't want a class-based result_source, need to make sure we grab a fresh one via default =>
-    return $self->clone(%override);
-}
-
-sub _setup_defer {
-    my $self = shift;
-    # FIXME This is a hack!
-    $_->_setup_defer($self) for $self->relationships;
-}
-
-sub BUILD {
-    my $self = shift;
-
-    unless ($_[0]->{clone}) {
-        my $schema = $self->schema;
-        my $moniker = $self->moniker;
-        my $result_source = $schema->source($moniker);
-
-        for my $relationship_name ($result_source->relationships) {
-            TRACE->("[$self] Processing relationship $relationship_name for $moniker");
-            my $relationship = $result_source->relationship_info($relationship_name);
-            my $model_relationship = MooseX::DBIC::Modeler::Relationship->new(parent_model_source => $self,
-                modeler => $self->modeler, name => $relationship_name, schema_relationship => $relationship);
-            $self->relationship_map->{$relationship_name} = $model_relationship;
-        }
-    }
-}
-
-sub relationship {
-    my $self = shift;
-    my $name = shift;
-    confess unless $name;
-    return $self->relationship_map->{$name};
-}
-
-sub relationships {
-    my $self = shift;
-    return values %{ $self->relationship_map };
-}
-
-sub create {
-    my $self = shift;
-    my $create = shift;
-
-    my $rs = $self->schema->resultset($self->moniker);
-    my $storage = $rs->create($create);
-    ($storage) = $storage->result_source->resultset->search({ id => $storage->id })->slice(0, 0) if $self->create_select;
-    return $self->inflate(storage => $storage, @_);
-}
-
-sub inflate {
-    my $self = shift;
-    my $inflate = @_ > 1 ? { @_ } : $_[0];
-
-    return $self->model_class->new(%$inflate);
-}
-
-sub search {
-    my $self = shift;
-    my $cond = shift || undef;
-    my $attr = shift || {};
-
-#    return $self->schema->resultset($self->moniker)->search($cond, { result_class => $self->model_class, %$attr });
-# FIXME Doesn't work cuz result_source ain't connected!
-    return $self->result_source->resultset->search($cond, { result_class => $self->model_class, %$attr });
-}
-
-sub inflate_related {
-    my $self = shift;
-    my $entity = shift;
-    my $relationship_name = shift;
-    my $inflate = @_ > 1 ? { @_ } : $_[0];
-
-    my $relationship = $self->relationship($relationship_name);
-
-    # Don't create if entity doesn't have a relationship
-    return undef unless my $storage = $entity->storage->$relationship_name;
-
-    return $relationship->model_source->inflate(storage => $storage);
-}
-
-sub create_related {
-    my $self = shift;
-    my $entity = shift;
-    my $relationship_name = shift;
-    my $values = shift;
-
-    my $relationship = $self->relationship($relationship_name);
-
-    my $storage = $entity->storage->create_related($relationship_name => $values);
-    ($storage) = $storage->result_source->resultset->search({ id => $storage->id })->slice(0, 0) if $self->create_select;
-
-    return $relationship->model_source->inflate(storage => $storage);
-}
-
-sub search_related {
-    my $self = shift;
-    my $entity = shift;
-    my $relationship_name = shift;
-    my $condition = shift || undef;
-    my $attributes = shift || {};
-
-    my $relationship = $self->relationship($relationship_name);
-
-    return $entity->storage->search_related($relationship_name => $condition,
-        { result_class => $relationship->model_class, %$attributes });
-}
-
-1;
-

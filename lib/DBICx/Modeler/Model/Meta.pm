@@ -18,6 +18,7 @@ sub _build_parent {
 }
 has model_class => qw/is ro required 1/;
 has _specialization => qw/is ro isa HashRef/, default => sub { {} };
+has _initialized => qw/is rw/;
 
 sub _specialize_relationship {
     my $self = shift;
@@ -67,12 +68,23 @@ sub initialize_base_model_class {
     my $self = shift;
     my $model_source = shift;
 
-    # $model_source should have been specialized already
-    croak "I should only be called on base model classes" if $self->parent;
+    my $model_class = $self->model_class;
 
-    my $meta = $self->model_class->meta;
+    if ($self->_initialized) {
+        TRACE->( "[$self] Already initialized $model_class" );
+        return;
+    }
+
+    $self->_initialized( 1 );
+
+    return $self->parent->initialize_base_model_class( $model_source ) if $self->parent;
+
+    my $meta = $model_class->meta;
     my $result_source = $model_source->result_source;
 
+    TRACE->( "[$self] Initializing base model class $model_class" );
+
+    # $model_source should have been specialized already
     for my $relationship ( $model_source->relationships ) {
         my $name = $relationship->name;
 
@@ -96,8 +108,8 @@ sub initialize_base_model_class {
     if ($attribute = $meta->get_attribute( 'model_storage' )) {
 
         if ($attribute->has_handles) { 
+            TRACE->("[$self] Not setting up model storage handles for $model_class since it already has them");
             # Assume the user know's what they're doing
-            # TODO Add a TRACE here
         }
         else {
             my @handles = grep { ! $meta->has_method( $_ ) } $result_source->columns;
@@ -106,8 +118,7 @@ sub initialize_base_model_class {
         }
     }
     else {
-        croak $self->model_class, ' WTF?';
-        # TODO Warn we don't know what's going on
+        croak "Couldn't set up model storage handles for $model_class since it doesn't have a 'model_storage' attribute"
     }
 }
 

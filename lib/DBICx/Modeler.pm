@@ -26,8 +26,9 @@ use DBICx::Modeler::Carp;
 use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 use Class::Inspector();
+use Scalar::Util qw/weaken/;
 
-require DBICx::Modeler::Model::Source;
+use DBICx::Modeler::Model::Source;
 
 #########
 # Class #
@@ -68,7 +69,7 @@ sub _expand_relative_name {
 # Object ##
 ###########
 
-has schema => qw/is ro required 1 weak_ref 1/;
+has schema => qw/is ro required 1/;
 has schema_class => qw/is ro lazy_build 1/;
 
 has [qw/
@@ -77,7 +78,7 @@ has [qw/
 /] => qw/is rw/;
 
 has [qw/
-    create_select
+    create_refresh
     sibling_namespace
 /] => qw/is rw default 1/;
 
@@ -133,7 +134,10 @@ sub BUILD {
 
     $self->_setup_schema_modeler_accessor unless $self->skip_schema_modeler_accessor;
     $self->_setup_base_model_sources;
-    $self->schema->modeler( $self );
+    {
+        $self->schema->modeler( $self );
+        weaken $self->schema->{modeler};
+    }
 
     return 1;
 }
@@ -186,14 +190,19 @@ sub model_class_by_moniker {
     for my $namespace ( $self->namespaces ) {
         my $potential_model_class = "${namespace}::${moniker}";
 
-        # TODO Lookit Class::C3::Componentised more
         if (Class::Inspector->loaded( $potential_model_class )) {
         }
         else {
             eval "require $potential_model_class;";
-            if ($@ && $@ =~ m/^Can't locate $potential_model_class/) {
+            if ($@) {
+                my $file = join '/', split '::', $potential_model_class;
+                if ($@ =~ m/^Can't locate $file/) {
+                    next;
+                }
+                else {
+                    die "Couldn't load class $potential_model_class for $moniker: $@" if $@;
+                }
             }
-            die "Couldn't load class $potential_model_class for $moniker: $@" if $@;
         }
         $model_class = $potential_model_class;
         last; # We found something!
@@ -219,7 +228,7 @@ sub model_sources {
 
 sub _model_source {
     my $self = shift;
-    my $model_source= shift;
+    my $model_source = shift;
 
     $model_source = $self->_model_source_lookup_map->{$model_source} while defined $model_source && ! ref $model_source;
 
@@ -227,8 +236,9 @@ sub _model_source {
 }
 
 sub model_source {
-    return shift->_model_source( @_ );
-# TODO Cro-o-o-o-o-ak?
+    my $self = shift;
+    my $model_source = shift;
+    return $self->_model_source( $model_source ) or croak "Couldn't find model source with key $model_source";
 }
 
 sub model_source_by_moniker {
@@ -280,7 +290,7 @@ sub _register_model_source {
     $self->_model_source_lookup_map->{$model_class} = $model_class_key;
     $self->_model_source_lookup_map->{$moniker} = $model_class_key;
     $self->_model_source_lookup_map->{$moniker_key} = $model_class_key;
-# TODO Add more aliasing
+    # TODO Add more aliasing
 }
 
 sub create {

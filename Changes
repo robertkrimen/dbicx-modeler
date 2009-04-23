@@ -1,0 +1,3 @@
+CAVEATS:
+    - May not be able to handle immutable classes
+
