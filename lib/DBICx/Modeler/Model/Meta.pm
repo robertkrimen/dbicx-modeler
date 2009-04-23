@@ -57,7 +57,8 @@ sub specialize_model_source {
         for my $specialized_relationship (values %$_) {
             my ($name, $kind, $model_class) = @$specialized_relationship{qw/ name kind model_class /};
             my $relationship = $model_source->relationship( $name );
-            DBICx::Modeler->ensure_class_loaded( $model_class );
+            $model_class = '+' . $relationship->default_model_class unless defined $model_class;
+            $model_class = $model_source->modeler->find_model_class( $model_class );
             $relationship->model_class( $model_class );
         }
     }

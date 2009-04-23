@@ -16,7 +16,7 @@ sub _build_schema {
     return shift->modeler->schema;
 }
 has moniker => qw/is ro required 1/;
-has model_class => qw/is ro required 1/;
+has model_class => qw/is rw required 1/;
 has result_source => qw/is ro lazy_build 1 weak_ref 1/;
 sub _build_result_source {
     my $self = shift;
@@ -65,6 +65,7 @@ sub clone {
         ( map { $_ => $self->$_ } qw/ modeler schema moniker model_class create_refresh / ),
         %override,
     );
+    $clone->model_class->model_meta->specialize_model_source( $clone ) if $override{model_class};
     return $clone;
 }
 
@@ -78,13 +79,12 @@ sub BUILD {
         my $result_source = $self->result_source;
 
         for my $relationship_name ($result_source->relationships) {
-            TRACE->("[$self] Processing relationship $relationship_name for $moniker");
+            TRACE->( "[$self] Processing relationship $relationship_name for $moniker" );
             my $relationship = $result_source->relationship_info($relationship_name);
             my $model_relationship = DBICx::Modeler::Model::Relationship->new(parent_model_source => $self,
                 modeler => $self->modeler, name => $relationship_name, schema_relationship => $relationship);
             $self->_relationship_map->{$relationship_name} = $model_relationship;
         }
-
         $self->model_class->model_meta->specialize_model_source( $self );
     }
 }
@@ -116,8 +116,6 @@ sub search {
     my $cond = shift || undef;
     my $attr = shift || {};
 
-#    return $self->schema->resultset($self->moniker)->search($cond, { result_class => $self->model_class, %$attr });
-# FIXME Doesn't work cuz result_source ain't connected!
     return $self->result_source->resultset->search( $cond, { result_class => $self->model_class, %$attr }, @_ );
 }
 
@@ -158,7 +156,7 @@ sub search_related {
 
     my $relationship = $self->relationship( $relationship_name );
 
-    return $entity->storage->search_related( $relationship_name => $condition,
+    return $entity->model_storage->search_related( $relationship_name => $condition,
         { result_class => $relationship->model_class, %$attributes } );
 }
 

@@ -13,10 +13,15 @@ sub _build_result_class {
     my $self = shift;
     return $self->schema_relationship->{class};
 }
+has default_model_class => qw/is ro lazy_build 1/;
+sub _build_default_model_class {
+    my $self = shift;
+    return $self->modeler->model_class_by_result_class( $self->result_class );
+}
 has model_class => qw/is rw lazy_build 1/;
 sub _build_model_class {
     my $self = shift;
-    return $self->modeler->model_class_by_result_class( $self->result_class );
+    return $self->default_model_class;
 }
 
 sub is_many {

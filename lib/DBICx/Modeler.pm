@@ -36,9 +36,10 @@ use DBICx::Modeler::Model::Source;
 sub ensure_class_loaded {
     shift;
     my $class = shift;
-    return if Class::Inspector->loaded( $class );
+    return $class if Class::Inspector->loaded( $class );
     eval "require $class;";
     die "Couldn't load class $class: $@" if $@;
+    return $class;
 }
 
 sub _expand_relative_name {
@@ -177,6 +178,18 @@ sub moniker_by_model_class {
 #    croak "Couldn't find moniker for (model class) $model_class" unless $moniker;
 }
 
+sub find_model_class {
+    my $self = shift;
+    my $query = shift;
+
+    if ($query =~ s/^\+//) {
+        return $self->ensure_class_loaded( $query );
+    }
+
+    # A relative class... 'moniker'
+    return $self->model_class_by_moniker( $query );
+}
+
 sub model_class_by_moniker {
     my $self = shift;
     my $moniker = shift;
@@ -196,6 +209,7 @@ sub model_class_by_moniker {
             if ($@) {
                 my $file = join '/', split '::', $potential_model_class;
                 if ($@ =~ m/^Can't locate $file/) {
+                    TRACE->( "[$self] Unable to load file ($file) for $potential_model_class" );
                     next;
                 }
                 else {
@@ -240,6 +254,11 @@ sub model_source {
     return $self->_model_source( $model_source ) or croak "Couldn't find model source with key $model_source";
 }
 
+sub model {
+    my $self = shift;
+    return $self->model_source( @_ );
+}
+
 sub model_source_by_moniker {
     my $self = shift;
     my $moniker = shift;
@@ -255,7 +274,8 @@ sub model_source_by_model_class {
     my $model_source = $self->_model_source( "+${model_class}" );
 
     return $model_source if $model_source;
-
+    
+    TRACE->( "[$self] Building model source for $model_class" );
     # The model class might not have been loaded yet
     $self->ensure_class_loaded( $model_class );
 
@@ -269,6 +289,7 @@ sub model_source_by_model_class {
     my $parent_model_source = $self->model_source_by_model_class( $parent_model_class );
 
     $model_source = $parent_model_source->clone( model_class => $model_class );
+    
     $self->_register_model_source( $model_source );
 
     return $model_source;

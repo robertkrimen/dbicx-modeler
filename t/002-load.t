@@ -33,7 +33,7 @@ package t::Model::Cd;
 
 use DBICx::Modeler::Model;
 
-belongs_to(artist => qw/t::Model::Artist::Rock/);
+belongs_to(artist => qw/Artist::Rock/);
 
 package main;
 
