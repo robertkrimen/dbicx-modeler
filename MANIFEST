@@ -1,6 +1,7 @@
 Changes
 MANIFEST
 Makefile.PL
+META.yml
 README
 inc/Module/AutoInstall.pm
 inc/Module/Install.pm
