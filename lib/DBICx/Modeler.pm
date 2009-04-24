@@ -9,11 +9,11 @@ DBICx::Modeler - A Moose-based model layer over DBIx::Class
 
 =head1 VERSION
 
-Version 0.001
+Version 0.002
 
 =cut
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 =head1 SYNOPSIS
 
@@ -53,13 +53,13 @@ DBICx::Modeler is tool for making a thin, Moose-based model layer over a DBIx::C
 
 =head1 CAVEAT EMPTOR
 
-The modeler will ignore many-to-many
+Many-to-many relationships are ignored
 
-Given $artist->cds( ... )->slice( 0 )->artist ... $artist and ->artist are not the same
+Given $artist->cds( ... )->slice( 0 )->artist ... $artist and ->artist are different objects
 
-Will probably barf of immutable Model:: classes (should be easy to fix)
+Will probably barf on immutable Model:: classes (should be easy to fix)
 
-Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if want to trace what is going on
+Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if you want to trace what is going on internally
 
 =head1 METHODS
 
