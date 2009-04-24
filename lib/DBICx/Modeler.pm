@@ -9,11 +9,11 @@ DBICx::Modeler - A Moose-based model layer over DBIx::Class
 
 =head1 VERSION
 
-Version 0.002
+Version 0.003
 
 =cut
 
-our $VERSION = '0.002';
+our $VERSION = '0.003';
 
 =head1 SYNOPSIS
 
@@ -53,13 +53,27 @@ DBICx::Modeler is tool for making a thin, Moose-based model layer over a DBIx::C
 
 =head1 CAVEAT EMPTOR
 
-Many-to-many relationships are ignored
+=head2 Many-to-many is not handled
 
-Given $artist->cds( ... )->slice( 0 )->artist ... $artist and ->artist are different objects
+Many-to-many relationships are ignored, for now. You'll have to access C<_model__storage> (which is the DBIx::Class::Row) if you want
+to play with them
 
-Will probably barf on immutable Model:: classes (should be easy to fix)
+=head2 The same storage object can be present in different model objects
 
-Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if you want to trace what is going on internally
+    # With the following example:
+    $artist->cds( ... )->slice( 0 )->artist # $artist and ->artist are different objects
+
+This shouldn't be too difficult to fix.
+
+=head2 The modeler will probably barf when trying to modify  immutable Model:: classes
+
+This shouldn't be too difficult to fix, either.
+
+=head2 Use C<DBIC_MODELER> to trace modeler setup
+
+Set C<DBIC_MODELER> to 1 if you want to trace what is going on in the modeler internally
+
+    $ENV{DBIC_MODELER} = 1
 
 =head1 METHODS
 
