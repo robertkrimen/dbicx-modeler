@@ -4,7 +4,7 @@ TODO:
     - Make sure with $artist->cds( ... )->slice( 0 )->artist that $artist and ->artist are the same
 
 0.003:
-    - _model__ renaming
+    - _model__ renaming and additional accessors
 
 0.002 Thursday April 23 17:21:43 PDT 2009:
     - Fixed some documentation

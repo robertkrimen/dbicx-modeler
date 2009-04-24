@@ -97,20 +97,24 @@ sub initialize_base_model_class {
                 my $self = shift;
                 return $self->_model__source->search_related( $self, $name, @_ );
             } );
-            $meta->add_method( $name => sub {
-                my $self = shift;
-                return $self->$method( @_ );
-            } );
+            if ($alias) {
+                $meta->add_method( $name => sub {
+                    my $self = shift;
+                    return $self->$method( @_ );
+                } );
+            }
         }
         else {
             $meta->add_attribute( $method => qw/is ro lazy 1/, default => sub {
                 my $self = shift;
                 return $self->_model__source->inflate_related( $self, $name );
             } );
-            $meta->add_method( $name => sub {
-                my $self = shift;
-                return $self->$method( @_ );
-            } );
+            if ($alias) {
+                $meta->add_method( $name => sub {
+                    my $self = shift;
+                    return $self->$method( @_ );
+                } );
+            }
         }
     }
 
