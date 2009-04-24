@@ -2,7 +2,7 @@ NAME
     DBICx::Modeler - A Moose-based model layer over DBIx::Class
 
 VERSION
-    Version 0.001
+    Version 0.002
 
 SYNOPSIS
         # Given the following schema:
@@ -40,15 +40,15 @@ DESCRIPTION
     DBIx::Class schema
 
 CAVEAT EMPTOR
-    The modeler will ignore many-to-many
+    Many-to-many relationships are ignored
 
     Given $artist->cds( ... )->slice( 0 )->artist ... $artist and ->artist
-    are not the same
+    are different objects
 
-    Will probably barf of immutable Model:: classes (should be easy to fix)
+    Will probably barf on immutable Model:: classes (should be easy to fix)
 
-    Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if want to trace what
-    is going on
+    Set DBIC_MODELER to 1 ( $ENV{DBIC_MODELER} = 1 ) if you want to trace
+    what is going on internally
 
 METHODS
     DBICx::Modeler->new( ... )
