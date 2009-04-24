@@ -21,5 +21,5 @@ $modeler = t::Test::Project->modeler( create_refresh => 0 );
 ok( $artist = $modeler->create( 'Artist' => { name => 'apple' } ) );
 is( $artist->name, 'apple' );
 is( $artist->insert_datetime, undef );
-$artist->model_storage->discard_changes;
+$artist->_model__storage->discard_changes;
 like( $artist->insert_datetime, qr/^\d{4}-/ ); # Something vaguely date-like

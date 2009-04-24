@@ -7,6 +7,8 @@ use Test::Most;
 
 plan qw/no_plan/;
 
+use DBICx::Modeler;
+
 package t::Model::Web::Artist;
 
 use DBICx::Modeler::Model;

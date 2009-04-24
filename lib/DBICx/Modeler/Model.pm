@@ -25,7 +25,7 @@ use DBICx::Modeler::Model::Meta;
 
         my $meta = Moose::Meta::Class->initialize( $class );
         my $model_meta = DBICx::Modeler::Model::Meta->new( model_class => $class );
-        $meta->add_method( model_meta => sub {
+        $meta->add_method( _model__meta => sub {
             return $model_meta;
         } );
         Moose::Util::apply_all_roles( $meta => qw/DBICx::Modeler::Does::Model/ );
@@ -39,22 +39,22 @@ use DBICx::Modeler::Model::Meta;
 
 sub belongs_to {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->belongs_to( $relationship_name => $model_class );
+    $caller->_model__meta->belongs_to( $relationship_name => $model_class );
 }
 
 sub has_one {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->has_one( $relationship_name => $model_class );
+    $caller->_model__meta->has_one( $relationship_name => $model_class );
 }
 
 sub has_many {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->has_many( $relationship_name => $model_class );
+    $caller->_model__meta->has_many( $relationship_name => $model_class );
 }
 
 sub might_have {
     my ($caller, $relationship_name, $model_class) = @_;
-    $caller->model_meta->might_have( $relationship_name => $model_class );
+    $caller->_model__meta->might_have( $relationship_name => $model_class );
 }
 
 1;

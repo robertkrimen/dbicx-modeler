@@ -224,7 +224,7 @@ sub _setup_base_model_sources {
             schema => $self->schema,
             model_class => $model_class,
         );
-        $model_class->model_meta->initialize_base_model_class( $model_source );
+        $model_class->_model__meta->initialize_base_model_class( $model_source );
         $self->_register_model_source( $model_source );
     }
 }
@@ -343,9 +343,9 @@ sub model_source_by_model_class {
     # The model class might not have been loaded yet
     $self->ensure_class_loaded( $model_class );
 
-    die "Can't get model source for $model_class since it doesn't have a model meta" unless $model_class->can( 'model_meta' );
+    die "Can't get model source for $model_class since it doesn't have a model meta" unless $model_class->can( '_model__meta' );
 
-    my $parent_model_meta = $model_class->model_meta->parent;
+    my $parent_model_meta = $model_class->_model__meta->parent;
 
     die "Strange, model source for $model_class doesn't exist, but it doesn't have a parent" unless $parent_model_meta;
 

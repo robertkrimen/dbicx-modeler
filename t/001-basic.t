@@ -23,8 +23,8 @@ my $modeler = t::Test::Project::Modeler->new( schema => $schema );
 ok( $modeler );
 is( scalar $modeler->model_sources, 3 );
 
-is( t::Test::Project::Model::Artist::Rock->model_meta->parent->model_class, 't::Test::Project::Model::Artist' );
-ok( !t::Test::Project::Model::Artist->model_meta->parent );
+is( t::Test::Project::Model::Artist::Rock->_model__meta->parent->model_class, 't::Test::Project::Model::Artist' );
+ok( !t::Test::Project::Model::Artist->_model__meta->parent );
 
 ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Artist' ) );
 ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Artist::Rock' ) );

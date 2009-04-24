@@ -65,7 +65,7 @@ sub clone {
         ( map { $_ => $self->$_ } qw/ modeler schema moniker model_class create_refresh / ),
         %override,
     );
-    $clone->model_class->model_meta->specialize_model_source( $clone ) if $override{model_class};
+    $clone->model_class->_model__meta->specialize_model_source( $clone ) if $override{model_class};
     return $clone;
 }
 
@@ -85,7 +85,7 @@ sub BUILD {
                 modeler => $self->modeler, name => $relationship_name, schema_relationship => $relationship);
             $self->_relationship_map->{$relationship_name} = $model_relationship;
         }
-        $self->model_class->model_meta->specialize_model_source( $self );
+        $self->model_class->_model__meta->specialize_model_source( $self );
     }
 }
 
@@ -96,7 +96,7 @@ sub create {
     my $rs = $self->schema->resultset( $self->moniker );
     my $storage = $rs->create( $create );
     $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
-    return $self->inflate( model_storage => $storage, @_ );
+    return $self->inflate( _model__storage => $storage, @_ );
 }
 
 sub inflate {
@@ -128,9 +128,9 @@ sub inflate_related {
     my $relationship = $self->relationship( $relationship_name );
 
     # Don't create if entity doesn't have a relationship
-    return undef unless my $storage = $entity->model_storage->$relationship_name;
+    return undef unless my $storage = $entity->_model__storage->$relationship_name;
 
-    return $self->_inflate( $relationship->model_class, model_storage => $storage );
+    return $self->_inflate( $relationship->model_class, _model__storage => $storage );
 }
 
 sub create_related {
@@ -141,10 +141,10 @@ sub create_related {
 
     my $relationship = $self->relationship( $relationship_name );
 
-    my $storage = $entity->model_storage->create_related( $relationship_name => $values );
+    my $storage = $entity->_model__storage->create_related( $relationship_name => $values );
     $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
 
-    return $self->_inflate( $relationship->model_class, model_storage => $storage );
+    return $self->_inflate( $relationship->model_class, _model__storage => $storage );
 }
 
 sub search_related {
@@ -156,7 +156,7 @@ sub search_related {
 
     my $relationship = $self->relationship( $relationship_name );
 
-    return $entity->model_storage->search_related( $relationship_name => $condition,
+    return $entity->_model__storage->search_related( $relationship_name => $condition,
         { result_class => $relationship->model_class, %$attributes } );
 }
 

@@ -11,7 +11,7 @@ use constant TRACE => DBICx::Modeler::Carp::TRACE;
 has parent => qw/is ro isa Maybe[DBICx::Modeler::Model::Meta] lazy_build 1/;
 sub _build_parent {
     my $self = shift;
-    if (my $method = $self->model_class->meta->find_next_method_by_name( 'model_meta' )) {
+    if (my $method = $self->model_class->meta->find_next_method_by_name( '_model__meta' )) {
         return $method->();
     }
     return undef;
@@ -88,38 +88,64 @@ sub initialize_base_model_class {
     # $model_source should have been specialized already
     for my $relationship ( $model_source->relationships ) {
         my $name = $relationship->name;
+        my $method = "_model__relation_$name";
+        my $is_many = $relationship->is_many;
+        my $alias = ! $meta->has_method( $name );
 
-        next if $meta->has_method($name);
-
-        if (! $relationship->is_many) {
-            $meta->add_attribute( $name => qw/is ro lazy 1/, default => sub {
+        if ($is_many) {
+            $meta->add_method( $method => sub {
                 my $self = shift;
-                return $self->model_source->inflate_related( $self, $name );
+                return $self->_model__source->search_related( $self, $name, @_ );
+            } );
+            $meta->add_method( $name => sub {
+                my $self = shift;
+                return $self->$method( @_ );
             } );
         }
         else {
+            $meta->add_attribute( $method => qw/is ro lazy 1/, default => sub {
+                my $self = shift;
+                return $self->_model__source->inflate_related( $self, $name );
+            } );
             $meta->add_method( $name => sub {
                 my $self = shift;
-                return $self->model_source->search_related( $self, $name, @_ );
+                return $self->$method( @_ );
             } );
         }
     }
 
+    unless ($meta->has_method( 'create_related' )) {
+        $meta->add_method( 'create_related' => sub {
+            my $self = shift;
+            return $self->_model__source->create_related( $self, @_ );
+        });
+    }
+
+    unless ($meta->has_method( 'search_related' )) {
+        $meta->add_method( 'search_related' => sub {
+            my $self = shift;
+            return $self->_model__source->search_related( $self, @_ );
+        });
+    }
+
     my $attribute;
-    if ($attribute = $meta->get_attribute( 'model_storage' )) {
+    if ($attribute = $meta->get_attribute( '_model__storage' )) {
 
         if ($attribute->has_handles) { 
             TRACE->("[$self] Not setting up model storage handles for $model_class since it already has them");
             # Assume the user know's what they're doing
         }
         else {
-            my @handles = grep { ! $meta->has_method( $_ ) } $result_source->columns;
-            my $new_attribute = $meta->_process_inherited_attribute( $attribute->name, handles => \@handles );
+            my @columns = $result_source->columns;
+            my %handles;
+            $handles{$_} = $_ for grep { ! $meta->has_method( $_ ) } @columns;
+            @handles{ map { "_model__column_$_" } @columns } = @columns;
+            my $new_attribute = $meta->_process_inherited_attribute( $attribute->name, handles => \%handles );
             $meta->add_attribute( $new_attribute );
         }
     }
     else {
-        croak "Couldn't set up model storage handles for $model_class since it doesn't have a 'model_storage' attribute"
+        croak "Couldn't set up model storage handles for $model_class since it doesn't have a '_model__storage' attribute"
     }
 }
 
