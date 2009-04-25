@@ -78,78 +78,87 @@ sub initialize_base_model_class {
 
     $self->_initialized( 1 );
 
-    return $self->parent->initialize_base_model_class( $model_source ) if $self->parent;
-
     my $meta = $model_class->meta;
-    my $result_source = $model_source->result_source;
 
-    TRACE->( "[$self] Initializing base model class $model_class" );
-
-    # $model_source should have been specialized already
-    for my $relationship ( $model_source->relationships ) {
-        my $name = $relationship->name;
-        my $method = "_model__relation_$name";
-        my $is_many = $relationship->is_many;
-        my $alias = ! $meta->has_method( $name );
-
-        if ($is_many) {
-            $meta->add_method( $method => sub {
-                my $self = shift;
-                return $self->_model__source->search_related( $self, $name, @_ );
-            } );
-            if ($alias) {
-                $meta->add_method( $name => sub {
-                    my $self = shift;
-                    return $self->$method( @_ );
-                } );
-            }
-        }
-        else {
-            $meta->add_attribute( $method => qw/is ro lazy 1/, default => sub {
-                my $self = shift;
-                return $self->_model__source->inflate_related( $self, $name );
-            } );
-            if ($alias) {
-                $meta->add_method( $name => sub {
-                    my $self = shift;
-                    return $self->$method( @_ );
-                } );
-            }
-        }
-    }
-
-    unless ($meta->has_method( 'create_related' )) {
-        $meta->add_method( 'create_related' => sub {
-            my $self = shift;
-            return $self->_model__source->create_related( $self, @_ );
-        });
-    }
-
-    unless ($meta->has_method( 'search_related' )) {
-        $meta->add_method( 'search_related' => sub {
-            my $self = shift;
-            return $self->_model__source->search_related( $self, @_ );
-        });
-    }
-
-    my $attribute;
-    if ($attribute = $meta->get_attribute( '_model__storage' )) {
-
-        if ($attribute->has_handles) { 
-            TRACE->("[$self] Not setting up model storage handles for $model_class since it already has them");
-            # Assume the user know's what they're doing
-        }
-        else {
-            my @columns = $result_source->columns;
-            my %handles;
-            $handles{$_} = $_ for grep { ! $meta->has_method( $_ ) } @columns;
-            @handles{ map { "_model__column_$_" } @columns } = @columns;
-            my $new_attribute = $meta->_process_inherited_attribute( $attribute->name, handles => \%handles );
-            $meta->add_attribute( $new_attribute );
-        }
+    if ($self->parent) {
+        $self->parent->initialize_base_model_class( $model_source );
     }
     else {
-        croak "Couldn't set up model storage handles for $model_class since it doesn't have a '_model__storage' attribute"
+        my $result_source = $model_source->result_source;
+
+        TRACE->( "[$self] Initializing base model class $model_class" );
+
+        # $model_source should have been specialized already
+        for my $relationship ( $model_source->relationships ) {
+            my $name = $relationship->name;
+            my $method = "_model__relation_$name";
+            my $is_many = $relationship->is_many;
+            my $alias = ! $meta->has_method( $name );
+
+            if ($is_many) {
+                $meta->add_method( $method => sub {
+                    my $self = shift;
+                    return $self->_model__source->search_related( $self, $name, @_ );
+                } );
+                if ($alias) {
+                    $meta->add_method( $name => sub {
+                        my $self = shift;
+                        return $self->$method( @_ );
+                    } );
+                }
+            }
+            else {
+                $meta->add_attribute( $method => qw/is ro lazy 1/, default => sub {
+                    my $self = shift;
+                    return $self->_model__source->inflate_related( $self, $name );
+                } );
+                if ($alias) {
+                    $meta->add_method( $name => sub {
+                        my $self = shift;
+                        return $self->$method( @_ );
+                    } );
+                }
+            }
+        }
+
+        unless ($meta->has_method( 'create_related' )) {
+            $meta->add_method( 'create_related' => sub {
+                my $self = shift;
+                return $self->_model__source->create_related( $self, @_ );
+            });
+        }
+
+        unless ($meta->has_method( 'search_related' )) {
+            $meta->add_method( 'search_related' => sub {
+                my $self = shift;
+                return $self->_model__source->search_related( $self, @_ );
+            });
+        }
+
+        my $attribute;
+        if ($attribute = $meta->get_attribute( '_model__storage' )) {
+
+            if ($attribute->has_handles) { 
+                TRACE->("[$self] Not setting up model storage handles for $model_class since it already has them");
+                # Assume the user know's what they're doing
+            }
+            else {
+                my @columns = $result_source->columns;
+                my %handles = map { $_ => $_ } qw/insert update/;
+                $handles{$_} = $_ for grep { ! $meta->has_method( $_ ) } @columns;
+                @handles{ map { "_model__column_$_" } @columns } = @columns;
+                my $new_attribute = $meta->_process_inherited_attribute( $attribute->name, handles => \%handles );
+                $meta->add_attribute( $new_attribute );
+            }
+        }
+        else {
+            croak "Couldn't set up model storage handles for $model_class since it doesn't have a '_model__storage' attribute"
+        }
+    }
+
+    for my $method_modifier (@{ $self->_specialization->{method_modifier} }) {
+        my ($kind, @arguments) = @$method_modifier;
+        Moose::Util::add_method_modifier( $model_class, $kind, \@arguments );
     }
 }
 

@@ -91,10 +91,20 @@ sub BUILD {
 
 sub create {
     my $self = shift;
-    my $create = shift;
+    my $given = shift;
 
     my $rs = $self->schema->resultset( $self->moniker );
-    my $storage = $rs->create( $create );
+    my $storage = $rs->create( $given );
+    $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
+    return $self->inflate( _model__storage => $storage, @_ );
+}
+
+sub update_or_create {
+    my $self = shift;
+    my $given = shift;
+
+    my $rs = $self->schema->resultset( $self->moniker );
+    my $storage = $rs->update_or_create( $given );
     $storage->discard_changes if $self->create_refresh && $storage->can( 'discard_changes' );
     return $self->inflate( _model__storage => $storage, @_ );
 }

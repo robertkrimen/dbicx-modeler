@@ -14,7 +14,10 @@ use DBICx::Modeler::Model::Meta;
 {
 
     my ($import, $unimport) = Moose::Exporter->build_import_methods(
-        with_caller => [ qw/belongs_to has_one has_many might_have/ ],
+        with_caller => [qw/
+            after before around
+            belongs_to has_one has_many might_have
+        /],
         also => [ qw/Moose/ ],
     );
 
@@ -35,6 +38,21 @@ use DBICx::Modeler::Model::Meta;
 
     *unimport = \&$unimport;
     *unimport = $unimport; # Derp, derp, derp, warning
+}
+
+sub after {
+    my $caller = shift;
+    push @{ $caller->_model__meta->_specialization->{method_modifier} }, [ after => @_ ];
+}
+
+sub before {
+    my $caller = shift;
+    push @{ $caller->_model__meta->_specialization->{method_modifier} }, [ before => @_ ];
+}
+
+sub around {
+    my $caller = shift;
+    push @{ $caller->_model__meta->_specialization->{method_modifier} }, [ around => @_ ];
 }
 
 sub belongs_to {
