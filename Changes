@@ -3,8 +3,9 @@ TODO:
     - Handle many-to-many
     - Make sure with $artist->cds( ... )->slice( 0 )->artist that $artist and ->artist are the same
     - Make save alias for update_or_create
+    - Better ->_model__ accessor (so ugly)
 
-0.004:
+0.004 Friday June 12 09:09:24 PDT 2009:
     - Integrated after, before, around method modification
     - Added update_or_create
 

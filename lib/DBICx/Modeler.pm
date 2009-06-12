@@ -9,11 +9,11 @@ DBICx::Modeler - A Moose-based model layer over DBIx::Class
 
 =head1 VERSION
 
-Version 0.003
+Version 0.004
 
 =cut
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 =head1 SYNOPSIS
 

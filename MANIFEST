@@ -31,6 +31,7 @@ t/006-redundant-initialization.t
 t/007-using.t
 t/008-example.t
 t/009-accessing.t
+t/010-method-modification.t
 t/release/boilerplate.t
 t/release/pod-coverage.t
 t/release/pod.t
