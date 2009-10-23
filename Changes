@@ -5,6 +5,9 @@ TODO:
     - Make save alias for update_or_create
     - Better ->_model__ accessor (so ugly)
 
+0.005 Friday October 23 13:22:37 PDT 2009:
+    - Integrated patch to fix deprecated cloning method (thanks gardejo)
+
 0.004 Friday June 12 09:09:24 PDT 2009:
     - Integrated after, before, around method modification
     - Added update_or_create
