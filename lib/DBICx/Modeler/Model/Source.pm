@@ -59,7 +59,7 @@ sub _build_relationship {
 sub clone {
     my $self = shift;
     my %override = @_;
-    my $clone = $self->new(
+    my $clone = (blessed $self)->new(
         clone => 1,
         _relationship_map => { map { $_ => $self->_relationship_map->{$_}->clone } keys %{ $self->_relationship_map } },
         ( map { $_ => $self->$_ } qw/ modeler schema moniker model_class create_refresh / ),

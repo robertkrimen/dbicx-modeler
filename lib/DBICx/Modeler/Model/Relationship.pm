@@ -56,7 +56,7 @@ sub has_many {
 sub clone {
     my $self = shift;
     my %override = @_;
-    return $self->new(
+    return (blessed $self)->new(
         ( map { $_ => $self->$_ } qw/modeler name schema_relationship model_class/ ),
         %override,
     );
