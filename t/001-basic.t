@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::Most;
 use Test::Memory::Cycle;
 use Test::Deep grep { !m/blessed/ } @Test::Deep::EXPORT;
 
@@ -27,7 +27,9 @@ is( t::Test::Project::Model::Artist::Rock->_model__meta->parent->model_class, 't
 ok( !t::Test::Project::Model::Artist->_model__meta->parent );
 
 ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Artist' ) );
-ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Artist::Rock' ) );
+warning_is {
+    ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Artist::Rock' ) );
+} undef, 'Warning did not occur';
 ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Cd' ) );
 ok( $modeler->model_source_by_model_class( 't::Test::Project::Model::Track' ) );
 

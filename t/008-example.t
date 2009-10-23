@@ -64,4 +64,6 @@ $modeler->model( 'Cd' )->model_class( 't::Model::Alternate::Cd' );
 ($alice_1) = $modeler->model( 'Cd' )->search( { title => 'alice-1' } )->slice( 0 );
 
 is( ref $alice_1, 't::Model::Alternate::Cd' );
-is( ref $alice_1->artist, 't::Test::Project::Model::Artist::Rock' );
+warning_is {
+    is( ref $alice_1->artist, 't::Test::Project::Model::Artist::Rock' );
+} undef, 'Warning did not occur';
