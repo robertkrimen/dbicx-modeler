@@ -3,8 +3,8 @@ package DBICx::Modeler::Model::Source;
 use strict;
 use warnings;
 
-use Moose;
-
+use Any::Moose;
+use DBICx::Modeler::X;
 use DBICx::Modeler::Carp;
 use constant TRACE => DBICx::Modeler::Carp::TRACE;
 

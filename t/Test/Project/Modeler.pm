@@ -1,6 +1,6 @@
 package t::Test::Project::Modeler;
 
-use Moose;
+use Any::Moose;
 
 BEGIN {
     extends qw/DBICx::Modeler/;

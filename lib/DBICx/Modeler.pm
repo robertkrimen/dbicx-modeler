@@ -97,8 +97,7 @@ $modeler->search( <moniker> => ... )
 
 =cut
 
-use Moose;
-
+use Any::Moose;
 use DBICx::Modeler::Carp;
 use constant TRACE => DBICx::Modeler::Carp::TRACE;
 

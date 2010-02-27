@@ -9,7 +9,7 @@ plan qw/no_plan/;
 
 package t::Does::URI;
 
-use Moose::Role;
+use Any::Moose '::Role';
 
 requires qw/uri/;
 

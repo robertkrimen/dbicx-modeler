@@ -17,10 +17,12 @@ sub ok_model {
 
 package t::Model::Track;
 
+use Any::Moose;
 use DBICx::Modeler::Model;
 
 package t::Model::Artist;
 
+use Any::Moose;
 use DBICx::Modeler::Model;
 
 after name => sub {
@@ -30,12 +32,14 @@ after name => sub {
 
 package t::Model::Artist::Rock;
 
+use Any::Moose;
 use DBICx::Modeler::Model;
 
 extends qw/t::Model::Artist/;
 
 package t::Model::Cd;
 
+use Any::Moose;
 use DBICx::Modeler::Model;
 
 belongs_to(artist => qw/Artist::Rock/);

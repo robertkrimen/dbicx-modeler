@@ -3,15 +3,20 @@ package DBICx::Modeler::Model::Meta;
 use strict;
 use warnings;
 
-use Moose;
-
+use Any::Moose;
+use DBICx::Modeler::X;
 use DBICx::Modeler::Carp;
 use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 has parent => qw/is ro isa Maybe[DBICx::Modeler::Model::Meta] lazy_build 1/;
 sub _build_parent {
     my $self = shift;
-    if (my $method = $self->model_class->meta->find_next_method_by_name( '_model__meta' )) {
+    if ( 0 ) { # FIXME
+        if (my $method = $self->model_class->meta->find_next_method_by_name( '_model__meta' )) {
+            return $method->();
+        }
+    }
+    if ( my $method = find_next_method_by_name( $self->model_class->meta, '_model__meta' ) ) {
         return $method->();
     }
     return undef;
@@ -19,6 +24,20 @@ sub _build_parent {
 has model_class => qw/is ro required 1/;
 has _specialization => qw/is ro isa HashRef/, default => sub { {} };
 has _initialized => qw/is rw/;
+
+sub find_next_method_by_name {
+    my( $class, $method_name ) = @_;
+    defined( $method_name )
+        or die 'You must define a method name to find';
+
+    my @classes = $class->linearized_isa;
+    shift @classes;
+    foreach my $class( @classes ) {
+        my $method = am( 'Meta::Class' )->initialize( $class )->get_method( $method_name );
+        return $method if defined $method;
+    }
+    return undef;
+}
 
 sub _specialize_relationship {
     my $self = shift;
@@ -143,12 +162,16 @@ sub initialize_base_model_class {
                 # Assume the user know's what they're doing
             }
             else {
-                my @columns = $result_source->columns;
-                my %handles = map { $_ => $_ } qw/insert update/;
-                $handles{$_} = $_ for grep { ! $meta->has_method( $_ ) } @columns;
-                @handles{ map { "_model__column_$_" } @columns } = @columns;
-                my $new_attribute = $meta->_process_inherited_attribute( $attribute->name, handles => \%handles );
-                $meta->add_attribute( $new_attribute );
+                if ( 1 ) { # FIXME
+                    my @columns = $result_source->columns;
+                    my %handles = map { $_ => $_ } qw/insert update/;
+                    $handles{$_} = $_ for grep { ! $meta->has_method( $_ ) } @columns;
+                    @handles{ map { "_model__column_$_" } @columns } = @columns;
+#                    my $new_attribute =
+#            $meta->_process_inherited_attribute( $attribute->name, handles => \%handles );
+#                    $meta->add_attribute( $new_attribute );
+                    $meta->add_attribute( $attribute->name, handles => \%handles );
+                }
             }
         }
         else {
@@ -158,7 +181,7 @@ sub initialize_base_model_class {
 
     for my $method_modifier (@{ $self->_specialization->{method_modifier} }) {
         my ($kind, @arguments) = @$method_modifier;
-        Moose::Util::add_method_modifier( $model_class, $kind, \@arguments );
+        am( ['::Util', 'add_method_modifier' ], $model_class, $kind, \@arguments );
     }
 }
 

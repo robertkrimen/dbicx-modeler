@@ -1,7 +1,7 @@
 package DBICx::Modeler::Does::Model;
 
-use DBICx::Modeler::Carp;
-use constant TRACE => DBICx::Modeler::Carp::TRACE;
+#use DBICx::Modeler::Carp;
+#use constant TRACE => DBICx::Modeler::Carp::TRACE;
 
 #########
 # Class #
@@ -20,7 +20,7 @@ sub inflate_result {
 # Object #
 ##########
 
-use Moose::Role;
+use Any::Moose( '::Role' );
 
 requires qw/_model__meta/;
 # requires model_meta 
