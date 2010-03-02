@@ -181,7 +181,13 @@ sub initialize_base_model_class {
 
     for my $method_modifier (@{ $self->_specialization->{method_modifier} }) {
         my ($kind, @arguments) = @$method_modifier;
-        am( ['::Util', 'add_method_modifier' ], $model_class, $kind, \@arguments );
+        if ( am eq 'Moose' ) {
+            am( ['::Util', 'add_method_modifier' ], $model_class, $kind, \@arguments );
+        }
+        else {
+            my $kind_method = "add_${kind}_method_modifier";
+            $model_class->meta->$kind_method( @arguments );
+        }
     }
 }
 
